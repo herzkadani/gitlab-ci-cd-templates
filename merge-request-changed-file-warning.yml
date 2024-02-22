@@ -1,0 +1,23 @@
+stages:
+- external_dependency_analysis
+variables:
+  EXTERNAL_CONFIG_FILE: application.proeprties # change this to your requirements
+  PT : $ACCESS_TOKEN_WITH_API_ACCESS # create an access token with API Access
+
+# if the diff between the newest commit of a merge request and the target branch contains a filename, add a comment to the merge request
+# this can be useful if your pipeline is configured for an auto deployment but you have some config files that need to be adapted manually in the deplyoment environment
+check_for_file_change:
+  stage: external_dependency_analysis
+  tags:
+    - backend-deploy
+  script:
+    |
+    git diff --name-only origin/%CI_MERGE_REQUEST_TARGET_BRANCH_NAME%..%CI_COMMIT_SHA% | findstr %EXTERNAL_CONFIG_FILE%
+    if %errorlevel% equ 0 (
+    curl --request POST "%CI_API_V4_URL%/projects/%CI_PROJECT_ID%/merge_requests/%CI_MERGE_REQUEST_IID%/notes" --header "PRIVATE-TOKEN: %PT%" --data "body=:warning: **The file `src/main/recources/application.properties` was changed. Check if there are any new properties and add them to the application.properties file on the server.**"
+    curl --request POST "%CI_API_V4_URL%/api/v4/projects/%CI_PROJECT_ID%/merge_requests/%CI_MERGE_REQUEST_IID%/cancel_merge_when_pipeline_succeeds" --header "PRIVATE-TOKEN: %PT%
+    )
+    exit 0
+    
+  only:
+    - merge_requests
